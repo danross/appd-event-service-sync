@@ -1,0 +1,11 @@
+[agent]
+app = Appdynamics
+tier = sync-service
+node = sync-service-desktop-ri72foi
+
+[controller]
+host = desktop-ri72foi
+port = 8090
+ssl = false
+account = customer1
+accesskey = 206f6430-64eb-4a18-ac6a-e313191e3b80

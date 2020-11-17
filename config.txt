@@ -1,0 +1,10 @@
+[CONTROLLER]
+endpoint = http://desktop-ri72foi:8090
+account = customer1
+client_id = sync
+client_secret = 97b8f169-1fb6-4b99-aa70-7a61d8e264c6
+
+[EVENT-SERVICE]
+endpoint = http://desktop-ri72foi:9080
+token = 5eaf772b-b886-490b-b629-edcfea7bf4d5
+accountname = customer1_c23d8344-35f1-4f88-9081-9903a2f72e41
