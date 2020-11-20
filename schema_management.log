@@ -1,0 +1,9 @@
+2020-11-20 10:22:20,788 - SYNCHER - INFO - Token expires in 60 seconds
+2020-11-20 10:22:20,789 - SYNCHER - INFO - Use Schema: 'custom_metrics'
+2020-11-20 10:22:26,436 - SYNCHER - INFO - Creating schema
+2020-11-20 10:22:28,454 - SYNCHER - ERROR - Schema does allready exists! Abort
+2020-11-20 10:22:36,754 - SYNCHER - INFO - Token expires in 60 seconds
+2020-11-20 10:22:36,755 - SYNCHER - INFO - Use Schema: 'custom_metrics'
+2020-11-20 10:22:38,808 - SYNCHER - INFO - Deleting schema
+2020-11-20 10:22:40,914 - SYNCHER - INFO - 	response = <Response [200]>
+2020-11-20 10:22:40,915 - SYNCHER - INFO - 	response.reason = OK

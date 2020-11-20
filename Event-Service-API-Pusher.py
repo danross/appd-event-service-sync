@@ -14,6 +14,9 @@ import configparser
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+import concurrent.futures
+
+
 class Controller: 
 
     """ Manage the operations on the controller """
@@ -85,6 +88,7 @@ class Controller:
         schedule.clear('oauth-token-tasks')
         schedule.every(expires_in-10).seconds.do(job_func=self.generate_controller_token).tag('oauth-token-tasks')
 
+    """
     def create_schema(self, name, schema, re_crease_if_exists = False):
         url = "/events/schema/" + str(name)
         response = self.post_to_eventservice(url=url, data=schema, parameter={})
@@ -102,32 +106,34 @@ class Controller:
 
         req = requests.delete(url, headers=self.__event_service_headers, verify=False)
         return req
-        
+    """    
 
     def get_metric(self, applicationname, metricpath, starttime, endtime):
         url = "/controller/rest/applications/" + str(applicationname) + "/metric-data"
 
-        parameter = {"metric-path" : metricpath, "time-range-type" : "BETWEEN_TIMES", "start-time" : starttime, "end-time" : endtime, "output" : "json", "rollup" : False}
+        parameter = {"metric-path" : metricpath, "time-range-type" : "BETWEEN_TIMES", "start-time" : starttime, "end-time" : endtime, "output" : "json", "rollup" : "false"}
         r = self.get_from_controller(url, {}, parameter)
 
         try:
             json = r.json()
         except:
             self.__logger.error("Didnt received JSON from server: " + str(r))
-            return None       
+            self.__logger.error("get_metric.response = " + str(r))
+            self.__logger.error("get_metric.response.content = " + str(r.content))
+            self.__logger.error("url = " + str(url))
+            self.__logger.error("parameter = " + str(parameter))
+            
+            return ""
         
         if len(json) == 0:            
-            return None
-        
+            self.__logger.error("Didnt received JSON from server: " + str(r))
 
+            return ""
+        
         metric_list = []    
 
         json = json[0]
         metricValues = json["metricValues"]
-
-        s = "parameter = " + str(parameter) + "\n"
-        s = s + str(metricValues)
-        print(s)
 
         return metricValues
 
@@ -149,9 +155,10 @@ class Controller:
         
     def get_from_controller(self, url, data, parameter):
         url = self.__controller_endpoint + url
-        self.__logger.debug("GET " + str(url))
 
-        return requests.get(url, headers=self.__controller_headers, params=parameter, data=data, verify=False)
+        response = requests.get(url, headers=self.__controller_headers, params=parameter, data=data, verify=False)
+        self.__logger.debug("GET " + str(url) + "\tdata = " + str(data) + "\tparameter = " + str(parameter) + "\t\tresponse:" + str(response))
+        return response
         
     def post_to_eventservice(self, url, data, parameter):
         url = self.__event_service_endpoint + url
@@ -163,10 +170,9 @@ class Controller:
 
 class TimeRange:
 
-    def __init__(self, start_time, end_time, logger):
+    def __init__(self, start_time, end_time, sched_time, logger):
         self.__logger = logger
-        print("start_time = " + str(start_time))
-        print("end_time = " + str(end_time))
+        self.__sched_time = sched_time
 
         if ":" in str(start_time):
             start_time = datetime.datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
@@ -185,13 +191,6 @@ class TimeRange:
             self.__unix_end_time = end_time
             self.__iso_end_time = self.unix_timestamp_to_date(end_time)
 
-        #print("getUnixStartTimeInSeconds = " + str(self.getUnixStartTimeInSeconds()))
-        #print("getUnixEndTimeInSeconds = " + str(self.getUnixEndTimeInSeconds()))
-
-        #print("getISOStartTime = " + str(self.getISOStartTime()))
-        #print("getISOEndTime = " + str(self.getISOEndTime()))
-        #import sys; sys.exit(-1)
-
 
     def getUnixStartTimeInSeconds(self): return self.__unix_start_time
     def getUnixEndTimeInSeconds(self):   return self.__unix_end_time
@@ -202,13 +201,15 @@ class TimeRange:
     def getISOStartTime(self): return self.__iso_start_time
     def getISOEndTime(self): return self.__iso_end_time
     
+    def IncreaseRangeBySchedTime(self):
+        self.IncreaseRangeBySeconds(self.__sched_time)
 
     def IncreaseRangeBySeconds(self, seconds):
         self.__unix_start_time = self.__unix_start_time + seconds
         self.__unix_end_time = self.__unix_end_time + seconds
 
-        self.__iso_start_time = unix_timestamp_to_date(self.__unix_start_time)
-        self.__iso_end_time = unix_timestamp_to_date(self.__unix_end_time)
+        self.__iso_start_time = self.unix_timestamp_to_date(self.__unix_start_time)
+        self.__iso_end_time = self.unix_timestamp_to_date(self.__unix_end_time)
 
 
     def unix_timestamp_to_date(self, epochtime):
@@ -265,19 +266,28 @@ def read_metric_config(filename):
 
     logger.debug("Config.sections() = " + str(Config.sections()))
 
+    all_controller_apps = ctrl.get_applications()
 
     result = []
     for app in Config.sections():
         print("app = " + str(app))
         if app == "ALL_APPLICATIONS":
-            #print("Found section: ALL_APPLICATIONS")
-
-            all_controller_apps = ctrl.get_applications()
             for el in all_controller_apps:
                 el = el["name"]
                 
                 for key, val in Config.items(app):
                     result.append((el,key,val))
+        if app.startswith("CONTAINS:"):
+            contains = app[len("CONTAINS:"):]
+            print("found CONTAINS in app name config")
+
+            for el in all_controller_apps:
+                el = el["name"]
+                if contains in el:
+                    print("\ttrue")
+                    for key, val in Config.items(app):
+                            result.append((el,key,val))
+
         else:
             for key, val in Config.items(app):
                 result.append((app,key,val))
@@ -290,24 +300,14 @@ def read_metric_config(filename):
 def process_all_metrics(controller, timerange, metrics_to_process):
 
     def pull_and_push_metric(controller, targetMetricName, app, path, starttime,endtime):
+
         path = path.replace("\"","")
-
-
-        #s = ""
-        #s = s + ("app = " + str(app)) + "\n"
-        #s = s + ("path = " + str(path)) + "\n"
-        #s = s + ("starttime = " + str(starttime)) + "\n"
-        #s = s + ("endtime = " + str(endtime)) + "\n"
-
         metrics = ctrl.get_metric(app,path,starttime,endtime)
-        #s = s + ("metrics = " + str(metrics)) + "\n\n\n"
-
-        #print(s)
-        #import sys; sys.exit(-1)
         if (metrics != None and len(metrics) > 0):
             post_metric_entry_to_event_service(metrics, targetMetricName, app, path, ctrl)
+            return 1
 
-
+        return 0
 
     start_datetime = timerange.getUnixStartTimeInMS()
     end_datetime = timerange.getUnixEndTimeInMS()
@@ -315,23 +315,27 @@ def process_all_metrics(controller, timerange, metrics_to_process):
     start = datetime.datetime.now()
     metric_received = 0
 
-    threads = []
+    futures = []
 
-    for app,targetMetricName,path in metrics_to_process:
-        metric_thread = threading.Thread(target=pull_and_push_metric, args=(controller, targetMetricName, app, path, start_datetime, end_datetime))
-        threads.append(metric_thread)
-    
-    for metric_thread in threads:
-        metric_thread.start()
+    with concurrent.futures.ThreadPoolExecutor(100) as executor:
+        for app,targetMetricName,path in metrics_to_process:
+            future = executor.submit(pull_and_push_metric,controller, targetMetricName, app, path, start_datetime, end_datetime)
+            futures.append(future)
+            
+
+        for f in concurrent.futures.as_completed(futures):
+            metric_received = metric_received + f.result()
+            
+    print("metric_received = " + str(metric_received))
+
 
     end = datetime.datetime.now()
     difference = end - start
-    printString = ("Needed " + str(difference.total_seconds()) + " seconds to process the metrics (Running threads: " + str(threading.active_count()) + ")")
+    printString = ("Needed " + str(difference.total_seconds()) + " seconds to process the metrics")
     printString = printString + "\n\t" + str(start).split(":")[-1] + " - " + str(end).split(":")[-1]
-
     print(printString)
 
-
+    timerange.IncreaseRangeBySchedTime()
 
 #Konstanten
 ALL_APPS = "ALL_APPLICATIONS"
@@ -344,31 +348,29 @@ schema = {"metricname" : "string", "application" : "string",
     "value" : "string"}
 
 def printHelp():
-    print("Benutze --schema=MeinSchema um in ein anderes Schema im Eventservice zu schreiben. Der Standard ist custom_metrics")
-    print("Benutze --metricFileName=MeineDatei um die Metric config aus einer anderen Datei zu lesen. Der Standard ist metrics.txt")
-    print("Benutze --startTime=2020-12-31 11:37:00 und --endTime=2020-12-31 15:00:00 um einen fest definierten Zeitraum zu synchronisieren. Danach beendet sich die Applikation")
+    print("\tBenutze --schema=MeinSchema um in ein anderes Schema im Eventservice zu schreiben. Der Standard ist custom_metrics")
+    print("\tBenutze --metricFileName=MeineDatei um die Metric config aus einer anderen Datei zu lesen. Der Standard ist metrics.txt")
+    print("\tBenutze --startTime=\"2020-12-31 11:37:00\" und --endTime=\"2020-12-31 15:00:00\" um einen fest definierten Zeitraum zu synchronisieren. Danach beendet sich die Applikation")
+    print("\tBenutze --schedule_time=60 um die Abtastrate (wie oft werden Daten abgerufen) in Sekunden zu definieren in . Der Standard ist 60.")
+    print("\tBenutze --minutes_delay=1 um den Delay der Abrufe zu konfigurieren. Ein minutes_delay von 1 bedeutet, dass um 15:00 Uhr die Daten von 14:59 abgerufen werden. \n\tWenn der Wert zu klein ist, kann es passieren, dass die Daten noch nicht da sind. Standard ist 3")
+    print("\tBenutze --logging_level=DEBUG/INFO um den logging Level zu setzen")
+    
     sys.exit(-1)
 
 if __name__ == "__main__":
     print("sys.argv = " + str(sys.argv))
 
-    logger = logging.getLogger("app")
-    logger.setLevel(logging.DEBUG)
-    fh = logging.FileHandler('syncher.log')
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
-    fh.setFormatter(formatter)
-
-    logger.addHandler(fh)
-
-    
     #Sollte über einen Parameter gesetzt werden können
     metric_file_name = "metrics.txt"
     schema_name = "custom_metrics"
-
     start_time = "-1"
     end_time = "-1"
+    sched_time = 60
+    minutes_delay = 3
+    logging_level = "INFO"
+    
 
+    stop = False
     for arg in sys.argv:
         #key value pair
         if arg[:2] == ("--"):
@@ -378,55 +380,98 @@ if __name__ == "__main__":
             if key == "metricFileName" : metric_file_name = value
             if key == "startTime" : start_time = value
             if key == "endTime" : end_time = value
+            if key == "schedule_time": sched_time = int(value)
+            if key == "minutes_delay": minutes_delay = int(value)
+            if key == "logging_level": logging_level = value
         elif arg[:1] == "-":
             arg = arg[1:]
             if arg == "help" : printHelp()
 
-    
+    logger = logging.getLogger("SYNCHER")
 
-    logger.info("Read metrics from: '" + str(metric_file_name) + "'")
-    logger.info("Use Schema: '" + str(schema_name) + "'")
+    if logging_level == "DEBUG":
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
 
-    ctrl = Controller(logger)
-    ctrl.create_schema(schema_name , {"schema" : schema}, re_crease_if_exists=True)
-    metrics_to_process = read_metric_config(metric_file_name)
+    fh = logging.FileHandler('syncher.log')
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
 
-    logger.debug("len(metrics_to_process) = " + str(len(metrics_to_process)))
-    logger.debug("metrics_to_process = " + str(metrics_to_process))
+    logger.info("schema_name = " + str(schema_name))
+    logger.info("metricFileName = " + str(metric_file_name))
+    logger.info("startTime = " + str(start_time))
+    logger.info("endTime = " + str(end_time))
+    logger.info("schedule_time = " + str(sched_time))
+    logger.info("minutes_delay = " + str(minutes_delay))
 
+    time_frame_error = ""
+    if (start_time != "-1") and (end_time == "-1"):
+        s = "Parameterfehler: startTime gesetzt, aber endTime nicht"
+        print(s)
+        logger.error(s)
+        sys.exit(-1)
+
+    if (start_time == "-1") and (end_time != "-1"):
+        s = "Parameterfehler:  startTime nicht gesetzt, aber endTime"
+        print(s)
+        logger.error(s)
+        sys.exit(-1)
 
     now = datetime.datetime.now()
     now = now.replace(second=0, microsecond=0)
-    now = now - datetime.timedelta(minutes=1)
+    now = now - datetime.timedelta(minutes=minutes_delay)
 
 
+    if not(start_time == "-1") and not(end_time == "-1"):
+        tr = TimeRange(start_time, end_time,minutes_delay, logger)
+
+        start_iso_date = tr.getISOStartTime()
+        end_iso_date = tr.getISOEndTime()
+
+        if start_iso_date > end_iso_date:
+            s = "startDate ist später als endDate"
+            print(s)
+            logger.error(s)
+            sys.exit(-1)
+
+        if start_iso_date > now:
+            s = "start_date ist in der Zukunft"
+            print(s)
+            logger.error(s)
+            sys.exit(-1)
+
+    logger.info("Use Schema: '" + str(schema_name) + "'")
+
+    ctrl = Controller(logger)
+    #ctrl.create_schema(schema_name , {"schema" : schema}, re_crease_if_exists=False)
+
+    logger.info("Read metrics from: '" + str(metric_file_name) + "'")
+    metrics_to_process = read_metric_config(metric_file_name)
+
+
+
+    logger.debug("metrics_to_process = " + str(metrics_to_process))
+    logger.debug("len(metrics_to_process) = " + str(len(metrics_to_process)))
 
     #In diesem Fall wird nur ein bestimmter Zeitraum verarbeitet    
     if not(start_time == "-1") and not(end_time == "-1"):
-
         print("Only sync limited time range")
-        tr = TimeRange(start_time, end_time, logger)
+        
         process_all_metrics(ctrl, tr, metrics_to_process=metrics_to_process)
         
     else:
-        #run_threaded(process_all_metrics, controller=ctrl, metrics_to_process=metrics_to_process)
-        #schedule.every(60).seconds.do(job_func=run_threaded,func_to_call=process_all_metrics, controller=ctrl, metrics_to_process=metrics_to_process)
+        start_time = now.strftime("%Y-%m-%d %H:%M:%S")
+        end_time = now + datetime.timedelta(minutes=1)
+        end_time = end_time.strftime("%Y-%m-%d %H:%M:%S")
+
+        tr = TimeRange(start_time, end_time,sched_time,  logger)
+
+
+        process_all_metrics(controller=ctrl, timerange=tr,  metrics_to_process=metrics_to_process)
+        schedule.every(sched_time).seconds.do(job_func=process_all_metrics, controller=ctrl, timerange=tr,  metrics_to_process=metrics_to_process)
         
-
-        logger.info("Start processing for minute: " + str(now))
-        current_epoch_time = datetime_to_unix_timestamp(now)
-        logger.info("current_epoch_time = " + str(current_epoch_time))
-
-
-
-        #process_all_metrics(ctrl, starttime = current_epoch_time, metrics_to_process)
-        #current_epoch_time = current_epoch_time + 60
-
-
-        #schedule.every(60).seconds.do(job_func=process_all_metrics,ctrl, current_epoch_time, metrics_to_process)
-
-
-
         while True:
             schedule.run_pending()
 

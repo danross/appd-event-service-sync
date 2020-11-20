@@ -1,13 +1,4 @@
 [Server%20&%20Infrastructure%20Monitoring]
 c_free = "Application Infrastructure Performance|Root|Individual Nodes|extern-hp-laptop|Hardware Resources|Volumes|C|Free (MB)"
 c_total = "Application Infrastructure Performance|Root|Individual Nodes|extern-hp-laptop|Hardware Resources|Volumes|C|Total (MB)"
-d_free = "Application Infrastructure Performance|Root|Individual Nodes|extern-hp-laptop|Hardware Resources|Volumes|D|Free (MB)"
-d_total = "Application Infrastructure Performance|Root|Individual Nodes|extern-hp-laptop|Hardware Resources|Volumes|D|Total (MB)"
-volume_total = "Application Infrastructure Performance|Root|Individual Nodes|extern-hp-laptop|Hardware Resources|Volumes|Total (MB)"
-cpu_system = "Application Infrastructure Performance|Root|Individual Nodes|extern-hp-laptop|Hardware Resources|CPU|System"
-disc_space_avail = "Application Infrastructure Performance|Root|Individual Nodes|extern-hp-laptop|Hardware Resources|Disks|harddiskvolume4|Space Available"
-disc_avg_readtime = "Application Infrastructure Performance|Root|Individual Nodes|extern-hp-laptop|Hardware Resources|Disks|harddiskvolume4|Avg read time (ms)"
-disc_avg_writetime = "Application Infrastructure Performance|Root|Individual Nodes|extern-hp-laptop|Hardware Resources|Disks|harddiskvolume4|Avg write time (ms)"
-load_1 = "Application Infrastructure Performance|Root|Individual Nodes|extern-hp-laptop|Hardware Resources|Load|Last 1 minute"
-load_15 = "Application Infrastructure Performance|Root|Individual Nodes|extern-hp-laptop|Hardware Resources|Load|Last 15 minuteinute"
-load_5 = "Application Infrastructure Performance|Root|Individual Nodes|extern-hp-laptop|Hardware Resources|Load|Last 5 minute
+
