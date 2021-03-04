@@ -13,12 +13,7 @@ if defined _OLD_VIRTUAL_PROMPT (
     )
 )
 if not defined VIRTUAL_ENV_DISABLE_PROMPT (
-    set "ENV_PROMPT="
-    if NOT DEFINED ENV_PROMPT (
-        for %%d in ("%VIRTUAL_ENV%") do set "ENV_PROMPT=(%%~nxd) "
-    )
-    )
-    set "PROMPT=%ENV_PROMPT%%PROMPT%"
+    set "PROMPT=(appd-event-service-sync) %PROMPT%"
 )
 
 REM Don't use () to avoid problems with them in %PATH%
