@@ -30,8 +30,8 @@ class Controller:
 
         self.__controller_endpoint = Config.get("CONTROLLER", "endpoint")
         self.__controller_account = Config.get("CONTROLLER", "account")
-        self.__controller_client_id = Config.get("CONTROLLER", "client_id")
-        self.__controller_client_secret = Config.get("CONTROLLER", "client_secret")
+        self.__controller_client_id = Config.get("CONTROLLER", "api_client_name")
+        self.__controller_client_secret = Config.get("CONTROLLER", "api_client_secret")
 
 
         self.__logger.debug("self.__controller_endpoint = " + str(self.__controller_endpoint))
@@ -40,8 +40,8 @@ class Controller:
         self.__logger.debug("self.__controller_client_secret = " + str(self.__controller_client_secret))
 
         self.__event_service_endpoint = Config.get("EVENT-SERVICE", "endpoint")
-        self.__event_service_account = Config.get("EVENT-SERVICE", "accountname")
-        self.__event_service_token = Config.get("EVENT-SERVICE", "token")
+        self.__event_service_account = Config.get("EVENT-SERVICE", "global_account_name")
+        self.__event_service_token = Config.get("EVENT-SERVICE", "api_key")
 
         self.__logger.debug("self.__event_service_endpoint = " + str(self.__event_service_endpoint))
         self.__logger.debug("self.__event_service_account = " + str(self.__event_service_account))
@@ -118,8 +118,7 @@ schema = {"metricname" : "string", "application" : "string",
     "metricpath4" : "string", "metricpath5" : "string", "metricpath6" :  "string", "metricpath7"  : "string",
     "metricpath8" : "string", "metricpath9" : "string", "metricpath10" : "string", "metricpath11" : "string",
     "startTimeInMillis" : "Date", 
-    "application" : "string",
-    "value" : "string"}
+    "value" : "Integer"}
 
 def printHelp():
     print("\tBenutze --schema=MeinSchema um ein Schema auszuwählen. Der Parameter ist nicht optional.")
@@ -129,7 +128,8 @@ def printHelp():
     sys.exit(-1)
 
 if __name__ == "__main__":
-    print("sys.argv = " + str(sys.argv))
+    if len(sys.argv) < 3: printHelp()
+
 
     #Sollte über einen Parameter gesetzt werden können
     logging_level = "INFO"
@@ -155,7 +155,7 @@ if __name__ == "__main__":
 
         
 
-    fh = logging.FileHandler('schema_management.log')
+    fh = logging.FileHandler('manage_schema.log')
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     fh.setFormatter(formatter)
     logger.addHandler(fh)
@@ -164,31 +164,31 @@ if __name__ == "__main__":
     ctrl = Controller(logger)
 
     if schema_name == "-1":
-        logger.error("No schema selected! Abort")
+        logger.error("Fehlendes Schema - breche ab.")
         sys.exit(-1)
 
     logger.info("Use Schema: '" + str(schema_name) + "'")
 
     if operation == "-1":
-        logger.error("No operation selected! Abort")
+        logger.error("Keine Operation ausgewählt - breche ab.")
         sys.exit(-1)
 
-    confirm = input("\nPlease type in the operation you have selected: ")
+    confirm = input("\nBitte bestätige die Operation: ")
 
     if not (confirm == operation):
-        logger.error("Confirmation is wrong! Abort")
+        logger.error("Bestätigung falsch - Abbruch.")
         sys.exit(-1)
 
 
     if operation == "create":
-        logger.info("Creating schema")
+        logger.info("Erstelle Schema")
         response = ctrl.create_schema(schema_name, {"schema" : schema})
         logger.info("\tschema = " + str(schema))
         logger.info("\tresponse = " + str(response))
         logger.info("\tresponse.reason = " + str(response.reason))
 
     if operation == "delete":
-        logger.info("Deleting schema")
+        logger.info("Lösche Schema")
         response = ctrl.delete_schema(schema_name)
         logger.info("\tresponse = " + str(response))
         logger.info("\tresponse.reason = " + str(response.reason))

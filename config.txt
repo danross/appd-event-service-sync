@@ -1,10 +1,36 @@
 [CONTROLLER]
+; Vollständiger Controller-Endpunkt mit Protokoll und Port. Zum Beispiel: http://localhost:8090
 endpoint = http://desktop-ri72foi:8090
-account = customer1
-client_id = sync
-client_secret = 97b8f169-1fb6-4b99-aa70-7a61d8e264c6
+; Account-name des Mandanten. Falls nur einer vorhanden ist, ist dieser customer1
+account = customer1 
+; API Client Name, siehe https://docs.appdynamics.com/display/PRO45/API+Clients
+api_client_name = sync
+; API Client Secret; siehe https://docs.appdynamics.com/display/PRO45/API+Clients
+api_client_secret = 1991158e-7e21-412e-b731-bb7d6d2d1bcf
 
 [EVENT-SERVICE]
+; Vollständiger Event-Service-Endpunkt mit Protokoll und Port. Zum Beispiel: http://localhost:9080
 endpoint = http://desktop-ri72foi:9080
-token = 5eaf772b-b886-490b-b629-edcfea7bf4d5
-accountname = customer1_c23d8344-35f1-4f88-9081-9903a2f72e41
+; API-Key für Zugriff auf die Event-Service-API; siehe https://docs.appdynamics.com/display/PRO45/Managing+API+Keys
+api_key = 1844c143-6704-4c48-ac70-b7e4363ccae2
+; Global Account Name - zu finden unter License - Account
+global_account_name = customer1_c23d8344-35f1-4f88-9081-9903a2f72e41
+
+
+[SYNCER-CONFIG]
+; Wie oft soll die Synchronisierung aufgerufen werden (In Sekunden)
+schedule_time = 60
+; Mit welchem konstanten Delay sollen die Daten abgerufen werden (Beispiel 3 Minuten: Um 10:20 werden die Daten von 10:17 abgerufen)
+minutes_delay = 3
+; Auf welchem Level soll geloggt werden (INFO/DEBUG)
+logging_level = DEBUG
+; Soll der Python-Agent zum Monitoring aktiviert werden (True/False) - siehe https://docs.appdynamics.com/display/PRO45/Python+Agent
+Python_agent  = False
+
+
+
+
+
+
+
+

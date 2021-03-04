@@ -2,3 +2,7 @@
 c_free = "Application Infrastructure Performance|Root|Individual Nodes|extern-hp-laptop|Hardware Resources|Volumes|C|Free (MB)"
 c_total = "Application Infrastructure Performance|Root|Individual Nodes|extern-hp-laptop|Hardware Resources|Volumes|C|Total (MB)"
 
+; Applikation wird benannt in den eckigen Klammern
+; Falls die Metrik für alle Applikation synchronisiert werden soll, dann kann in den eckigen Klammern ALL_APPLICATIONS hinterlegt werden 
+; Das Format unter der Applikations-Sektion sieht dann wie folgt aus:
+; CUSTOM_METRIC_NAME = "METRIC-PATH"
